@@ -7,3 +7,4 @@ frontend/dist/
 *.log
 .DS_Store
 /tmp_uploads/
+*.tsbuildinfo
