@@ -44,18 +44,42 @@ export default function Quality({ onChanged, refreshToken }: { onChanged: () => 
   const [constVal, setConstVal] = useState('');
 
   const load = async () => {
-    setLoading(true); setError('');
-    try {
-      const [q, s, c] = await Promise.all([api.quality(), api.summary(), api.columns()]);
-      setReport(q); setSummary(s.summary); setCols(c.columns);
-      setCanUndo(s.can_undo);
-      if (!col && c.columns.length) setCol(c.columns[0]);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed';
-      if (msg.includes('No dataset')) { setReport(null); setSummary(null); }
-      else setError(msg);
-    } finally { setLoading(false); }
-  };
+  setLoading(true);
+  setError('');
+
+  try {
+    const s = await api.summary() as {
+      summary: Record<string, unknown>;
+      quality?: Record<string, unknown>;
+      columns?: string[];
+      can_undo: boolean;
+    };
+
+    if (!s.quality) {
+      throw new Error('Quality data unavailable');
+    }
+
+    setReport(s.quality);
+    setSummary(s.summary);
+    setCols(Array.isArray(s.columns) ? s.columns : []);
+    setCanUndo(Boolean(s.can_undo));
+
+    if (!col && Array.isArray(s.columns) && s.columns.length) {
+      setCol(s.columns[0]);
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Failed';
+
+    if (msg.includes('No dataset')) {
+      setReport(null);
+      setSummary(null);
+    } else {
+      setError(msg);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => { load(); }, [refreshToken]);
 
