@@ -44,45 +44,18 @@ export default function Quality({ onChanged, refreshToken }: { onChanged: () => 
   const [constVal, setConstVal] = useState('');
 
   const load = async () => {
-  setLoading(true);
-  setError('');
-
-  try {
-    // Get the complete dataset state in one request.
-    // This prevents inconsistent serverless instances on Vercel.
-    const s = await api.summary();
-
-    setSummary(s.summary);
-    setCanUndo(s.can_undo);
-
-    const summaryColumns = Array.isArray(s.columns)
-      ? (s.columns as string[])
-      : [];
-
-    setCols(summaryColumns);
-
-    if (!col && summaryColumns.length) {
-      setCol(summaryColumns[0]);
-    }
-
-    if (s.quality) {
-      setReport(s.quality);
-    } else {
-      setReport(await api.quality());
-    }
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Failed';
-
-    if (msg.includes('No dataset')) {
-      setReport(null);
-      setSummary(null);
-    } else {
-      setError(msg);
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true); setError('');
+    try {
+      const [q, s, c] = await Promise.all([api.quality(), api.summary(), api.columns()]);
+      setReport(q); setSummary(s.summary); setCols(c.columns);
+      setCanUndo(s.can_undo);
+      if (!col && c.columns.length) setCol(c.columns[0]);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed';
+      if (msg.includes('No dataset')) { setReport(null); setSummary(null); }
+      else setError(msg);
+    } finally { setLoading(false); }
+  };
 
   useEffect(() => { load(); }, [refreshToken]);
 
@@ -326,17 +299,24 @@ export default function Quality({ onChanged, refreshToken }: { onChanged: () => 
           </Card>
 
           <Card title="Session history" subtitle="Operations applied since import" className="mt-3">
-            {s && (s.ops as { label: string; at: string }[]).length === 0 && (
-              <div className="text-[13px] text-muted">No operations yet.</div>
-            )}
-            <ul className="space-y-1.5 text-[12.5px] max-h-[220px] overflow-y-auto">
-              {s && (s.ops as { label: string; at: string }[]).map((o, i) => (
-                <li key={i} className="flex gap-2 border-b border-line/60 pb-1.5">
-                  <span className="text-bronze font-semibold">{i + 1}.</span><span>{o.label}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
+  {s && Array.isArray(s.ops) && s.ops.length === 0 && (
+    <div className="text-[13px] text-muted">No operations yet.</div>
+  )}
+
+  {s && !Array.isArray(s.ops) && (
+    <div className="text-[13px] text-muted">No operations yet.</div>
+  )}
+
+  <ul className="space-y-1.5 text-[12.5px] max-h-[220px] overflow-y-auto">
+    {s && Array.isArray(s.ops) &&
+      (s.ops as { label: string; at: string }[]).map((o, i) => (
+        <li key={i} className="flex gap-2 border-b border-line/60 pb-1.5">
+          <span className="text-bronze font-semibold">{i + 1}.</span>
+          <span>{o.label}</span>
+        </li>
+      ))}
+  </ul>
+</Card>
         </div>
       </div>
 
