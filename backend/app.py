@@ -98,9 +98,17 @@ def load_sample():
 def api_summary():
     df = _require_data()
     assert store.current is not None
-    return {"ok": True, "summary": dataset_summary(df, store.current.filename, store.current.filetype),
-            "ops": store.current.ops_log, "can_undo": len(store.current.history) > 0,
-            "analysis_log": store.current.analysis_log[-12:][::-1]}
+    roles = classify_columns(df)
+    return {
+        "ok": True,
+        "summary": dataset_summary(df, store.current.filename, store.current.filetype),
+        "quality": {"ok": True, **quality_report(df)},
+        "columns": list(df.columns),
+        "roles": roles,
+        "ops": store.current.ops_log,
+        "can_undo": len(store.current.history) > 0,
+        "analysis_log": store.current.analysis_log[-12:][::-1],
+    }
 
 
 @app.get("/api/dataset/preview")

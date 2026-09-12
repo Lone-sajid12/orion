@@ -44,18 +44,45 @@ export default function Quality({ onChanged, refreshToken }: { onChanged: () => 
   const [constVal, setConstVal] = useState('');
 
   const load = async () => {
-    setLoading(true); setError('');
-    try {
-      const [q, s, c] = await Promise.all([api.quality(), api.summary(), api.columns()]);
-      setReport(q); setSummary(s.summary); setCols(c.columns);
-      setCanUndo(s.can_undo);
-      if (!col && c.columns.length) setCol(c.columns[0]);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed';
-      if (msg.includes('No dataset')) { setReport(null); setSummary(null); }
-      else setError(msg);
-    } finally { setLoading(false); }
-  };
+  setLoading(true);
+  setError('');
+
+  try {
+    // Get the complete dataset state in one request.
+    // This prevents inconsistent serverless instances on Vercel.
+    const s = await api.summary();
+
+    setSummary(s.summary);
+    setCanUndo(s.can_undo);
+
+    const summaryColumns = Array.isArray(s.columns)
+      ? (s.columns as string[])
+      : [];
+
+    setCols(summaryColumns);
+
+    if (!col && summaryColumns.length) {
+      setCol(summaryColumns[0]);
+    }
+
+    if (s.quality) {
+      setReport(s.quality);
+    } else {
+      setReport(await api.quality());
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Failed';
+
+    if (msg.includes('No dataset')) {
+      setReport(null);
+      setSummary(null);
+    } else {
+      setError(msg);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => { load(); }, [refreshToken]);
 
